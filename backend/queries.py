@@ -1,6 +1,6 @@
 from typing import Any, Dict, List
-from sqlmodel import Session, select, func, col
-from sqlalchemy import and_, between
+from sqlmodel import Session, select, func
+from sqlalchemy import and_, between, text
 from .database import engine
 from .models import Earthquake, Region, SeismicZone
 
@@ -43,26 +43,24 @@ def get_quakes_in_region(region_id: int):
 def get_avg_magnitude_in_region(region_id: int):
     """Calculate the average earthquake magnitude for a specific region."""
     with Session(engine) as session:
-        statement = (
-            select(
-                Region.region_id,
-                Region.region_name,
-                func.avg(Earthquake.magnitude).label("avg_magnitude")
-            )
-            .select_from(Earthquake)
-            .join(Region)
-            .where(Region.region_id == region_id)
-            .group_by(Region.region_id, Region.region_name)
-        )
-        results = session.exec(statement).all()
-        return [
-            {
-                "region_id": r[0],
-                "region_name": r[1],
-                "avg_magnitude": r[2],
-            }
-            for r in results
-        ]
+        sql = text("""
+            SELECT
+                r.region_id,
+                r.region_name,
+                AVG(e.magnitude) AS avg_magnitude
+            FROM Earthquake AS e
+            JOIN Region AS r ON e.region_id = r.region_id
+            WHERE r.region_id = :region_id
+            GROUP BY r.region_id, r.region_name
+        """).bindparams(region_id=region_id)
+        result = session.exec(sql).first()
+        if result is None:
+            return None
+        return {
+            "region_id": result[0],
+            "region_name": result[1],
+            "avg_magnitude": float(result[2]) if result[2] is not None else None,
+        }
 
 
 def count_quakes_near_location(
@@ -84,7 +82,7 @@ def count_quakes_near_location(
                 between(Earthquake.longitude, lon_min, lon_max)
             )
         )
-        result = session.exec(statement).first()
+        result = session.exec(statement).first() or 0
         return [{"quake_count": result}]
 
 
@@ -318,12 +316,9 @@ def get_region_risk_summary(region_id: int):
             select(
                 Region.region_id,
                 Region.region_name,
-                Region.country,
-                Region.population,
-                SeismicZone.zone_id,
                 SeismicZone.zone_name,
                 SeismicZone.risk_level,
-                func.count(Earthquake.quake_id).label("quake_count"),
+                func.count(Earthquake.quake_id).label("total_quakes"),
                 func.avg(Earthquake.magnitude).label("avg_magnitude"),
                 func.max(Earthquake.magnitude).label("max_magnitude")
             )
@@ -334,9 +329,6 @@ def get_region_risk_summary(region_id: int):
             .group_by(
                 Region.region_id,
                 Region.region_name,
-                Region.country,
-                Region.population,
-                SeismicZone.zone_id,
                 SeismicZone.zone_name,
                 SeismicZone.risk_level
             )
@@ -346,14 +338,11 @@ def get_region_risk_summary(region_id: int):
             {
                 "region_id": r[0],
                 "region_name": r[1],
-                "country": r[2],
-                "population": r[3],
-                "zone_id": r[4],
-                "zone_name": r[5],
-                "risk_level": r[6],
-                "quake_count": r[7],
-                "avg_magnitude": r[8],
-                "max_magnitude": r[9],
+                "zone_name": r[2],
+                "risk_level": r[3],
+                "total_quakes": r[4],
+                "avg_magnitude": float(r[5]) if r[5] is not None else None,
+                "max_magnitude": float(r[6]) if r[6] is not None else None,
             }
             for r in results
         ]

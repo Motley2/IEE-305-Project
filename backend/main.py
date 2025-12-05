@@ -1,4 +1,6 @@
-from fastapi import FastAPI, Query
+from typing import List
+from fastapi import FastAPI, Query, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
 from .queries import (
     get_quakes_in_region,
     get_avg_magnitude_in_region,
@@ -12,6 +14,13 @@ from .queries import (
     get_region_risk_summary,
 )
 
+from .schemas import (
+    EarthquakeInRegion,
+    AvgMagnitudeResponse,
+    NearbyCountResponse,
+    RegionRiskSummary,
+)
+
 
 app = FastAPI(
     title="Earthquake Analytics API",
@@ -19,6 +28,13 @@ app = FastAPI(
     version="1.0.0"
 )
 
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"], 
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 @app.get("/")
 def root():
@@ -28,39 +44,78 @@ def root():
 # -----------------------
 # Query 1 – Quakes in region
 # -----------------------
-@app.get("/regions/{region_id}/earthquakes")
+@app.get(
+    "/regions/{region_id}/earthquakes",
+    response_model=List[EarthquakeInRegion],
+    tags=["Regions"],
+)
 def api_quakes_in_region(region_id: int):
     """
-    Return all earthquakes for a given region.
+    Returns all earthquakes for a given region.
+    Uses a typed response model (EarthquakeInRegion) and returns 404 if there
+    are no earthquakes for the given region.
     """
-    return get_quakes_in_region(region_id)
+    data = get_quakes_in_region(region_id)
+
+    if not data:
+        raise HTTPException(
+            status_code=404,
+            detail=f"No earthquakes found for region_id={region_id}.",
+        )
+
+    return data
 
 
 # -----------------------
 # Query 2 – Average magnitude in region
 # -----------------------
-@app.get("/regions/{region_id}/stats/avg-magnitude")
+@app.get(
+    "/regions/{region_id}/stats/avg-magnitude",
+    response_model=AvgMagnitudeResponse,
+    tags=["Regions"],
+)
 def api_avg_magnitude(region_id: int):
     """
-    Return average magnitude for earthquakes in a region.
+    Returns average magnitude for earthquakes in a region.
+    Returns 404 if the region has no earthquakes.
     """
-    return get_avg_magnitude_in_region(region_id)
+    results = get_avg_magnitude_in_region(region_id)
+
+    if not results:
+        raise HTTPException(
+            status_code=404,
+            detail=f"No earthquakes found to compute average for region_id={region_id}.",
+        )
+
+    result = get_avg_magnitude_in_region(region_id)
+    if result is None:
+        ...
+    return result
 
 
 # -----------------------
 # Query 3 – Quakes near a location
 # -----------------------
-@app.get("/analytics/nearby")
-def api_quakes_nearby(
-    lat: float = Query(..., description="Center latitude"),
-    lon: float = Query(..., description="Center longitude"),
-    lat_delta: float = Query(1.0, description="Latitude ± window"),
-    lon_delta: float = Query(1.0, description="Longitude ± window"),
+@app.get(
+    "/analytics/nearby",
+    response_model=NearbyCountResponse,
+    tags=["Analytics"],
+)
+def api_quakes_near_location(
+    lat: float = Query(..., description="Latitude of the location."),
+    lon: float = Query(..., description="Longitude of the location."),
+    radius_km: float = Query(..., ge=0, description="Search radius in kilometers."),
 ):
     """
-    Count earthquakes within a bounding box around a given location.
+    Count earthquakes within a bounding box around the given lat/lon.
     """
-    return count_quakes_near_location(lat, lon, lat_delta, lon_delta)
+    results = count_quakes_near_location(lat, lon, radius_km)
+
+    # Expecting a list with a single dict like {"quake_count": <int>}
+    if not results:
+        return {"quake_count": 0}
+
+    return results[0]
 
 # -----------------------
 # Query 4 – Most active regions
@@ -143,13 +198,24 @@ def api_high_population_regions(
 # -----------------------
 # Query 10 – Region risk summary
 # -----------------------
-@app.get("/regions/{region_id}/risk-summary")
+@app.get(
+    "/regions/{region_id}/risk-summary",
+    response_model=RegionRiskSummary,
+    tags=["Regions", "Analytics"],
+)
 def api_region_risk_summary(region_id: int):
     """
-    Return a seismic risk summary for a specific region:
-      - population
-      - zone risk_level
-      - quake_count
-      - average and max magnitude
+    Return risk summary for a specific region, combining:
+    - Region info
+    - Seismic zone info
+    - Aggregated earthquake stats
     """
-    return get_region_risk_summary(region_id)
+    results = get_region_risk_summary(region_id)
+
+    if not results:
+        raise HTTPException(
+            status_code=404,
+            detail=f"No risk summary available for region_id={region_id}.",
+        )
+
+    return results[0]
