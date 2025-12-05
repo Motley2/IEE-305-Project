@@ -12,7 +12,7 @@ params = {
     "format": "geojson",
     "starttime": "2025-01-01",
     "endtime": today,
-    "minmagnitude": 4.5,
+    "minmagnitude": 3,
     "orderby": "time",
     "limit": 50,
 }
