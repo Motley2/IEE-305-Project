@@ -35,7 +35,7 @@ def classify_region(lat: float, lon: float) -> int:
         return 1
 
     # Alaska-ish
-    if 50 <= lat <= 72 and -170 <= lon <= -130:
+    if 50 <= lat <= 72 and -175 <= lon <= -130:
         return 2
 
     # Japan-ish
@@ -61,7 +61,7 @@ def classify_zone(lat: float, lon: float) -> int:
         return 1
 
     # North American interior / Alaska region
-    if 45 <= lat <= 75 and -170 <= lon <= -60:
+    if 45 <= lat <= 75 and -175 <= lon <= -60:
         return 2
 
     # Japan trench
