@@ -12,7 +12,7 @@ params = {
     "format": "geojson",
     "starttime": "2025-01-01",
     "endtime": today,
-    "minmagnitude": 4.5,
+    "minmagnitude": 3,
     "orderby": "time",
     "limit": 50,
 }
@@ -136,7 +136,7 @@ def seed_lookup_tables(conn):
              39_200_000),
 
         # 2. Alaska (incl. Aleutians)
-        (2,  "Alaska–Aleutian Margin",           
+        (2,  "Alaska/Aleutian Margin",           
              "USA", 
              733_000),
 
@@ -151,7 +151,7 @@ def seed_lookup_tables(conn):
              19_600_000),
 
         # 5. Indonesia / Philippines / PNG Arc
-        (5,  "Indonesia–Philippines–PNG Arc",     
+        (5,  "Indonesia/Philippines/PNG Arc",     
              "Indonesia + Philippines + PNG", 
              277_500_000 + 117_300_000 + 9_700_000),
 
@@ -166,7 +166,7 @@ def seed_lookup_tables(conn):
              85_000_000 + 10_300_000 + 58_900_000 + 18_000_000),
 
         # 8. Himalaya–Central Asia Belt
-        (8,  "Himalaya–Central Asia Belt",        
+        (8,  "Himalaya/Central Asia Belt",        
              "India North + Nepal + Pakistan North + China West", 
              600_000_000 + 30_300_000 + 70_000_000 + 95_000_000),
 
@@ -197,7 +197,7 @@ def seed_lookup_tables(conn):
             (6, 'Mediterranean Collision/Subduction', 4),
             (7, 'Himalayan Collision Belt', 4),
             (8, 'Mid-Atlantic Ridge', 3),
-            (9, 'Kuril–Kamchatka Subduction Zone', 5),
+            (9, 'Kuril/Kamchatka Subduction Zone', 5),
             (10, 'Other Oceanic Zone', 2),
         ],
     )
