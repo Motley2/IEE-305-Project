@@ -1,5 +1,5 @@
 from fastapi import FastAPI, Query
-from queries import (
+from .queries import (
     get_quakes_in_region,
     get_avg_magnitude_in_region,
     count_quakes_near_location,
@@ -11,6 +11,7 @@ from queries import (
     get_quakes_in_high_population_regions,
     get_region_risk_summary,
 )
+
 
 app = FastAPI(
     title="Earthquake Analytics API",

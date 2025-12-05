@@ -1,7 +1,9 @@
 import requests
 from datetime import datetime, timezone
+from sqlmodel import Session
 
-from database import get_connection
+from .database import engine, init_db
+from .models import Region, SeismicZone, Earthquake
 
 
 BASE_URL = "https://earthquake.usgs.gov/fdsnws/event/1/query"
@@ -119,161 +121,103 @@ def classify_zone(lat: float, lon: float) -> int:
 
 
 
-def seed_lookup_tables(conn):
-    cur = conn.cursor()
-
+def seed_lookup_tables(session: Session):
+    # Seed Region table
+    regions = [
+        Region(region_id=1, region_name="California Margin", country="USA", population=39_200_000),
+        Region(region_id=2, region_name="Alaska/Aleutian Margin", country="USA", population=733_000),
+        Region(region_id=3, region_name="NW Pacific Margin (Japan/Russia)", country="Japan + Russian Far East", population=125_700_000 + 6_300_000),
+        Region(region_id=4, region_name="Chile Subduction Zone", country="Chile", population=19_600_000),
+        Region(region_id=5, region_name="Indonesia/Philippines/PNG Arc", country="Indonesia + Philippines + PNG", population=277_500_000 + 117_300_000 + 9_700_000),
+        Region(region_id=6, region_name="New Zealand & SW Pacific", country="NZ + Fiji + Tonga + Samoa", population=5_200_000 + 940_000 + 107_000 + 225_000),
+        Region(region_id=7, region_name="Mediterranean Region", country="Turkey + Greece + Italy + Balkans", population=85_000_000 + 10_300_000 + 58_900_000 + 18_000_000),
+        Region(region_id=8, region_name="Himalaya/Central Asia Belt", country="India North + Nepal + Pakistan North + China West", population=600_000_000 + 30_300_000 + 70_000_000 + 95_000_000),
+        Region(region_id=9, region_name="Caribbean Arc (Puerto Rico / USVI)", country="Multiple", population=12_000_000),
+        Region(region_id=10, region_name="Other", country="Various", population=None),
+    ]
     
-    cur.executemany(
-    """
-    INSERT OR IGNORE INTO Region (region_id, region_name, country, population)
-    VALUES (?, ?, ?, ?)
-    """,
-    [
-        # 1. California
-        (1,  "California Margin",                 
-             "USA", 
-             39_200_000),
-
-        # 2. Alaska (incl. Aleutians)
-        (2,  "Alaska/Aleutian Margin",           
-             "USA", 
-             733_000),
-
-        # 3. NW Pacific Margin (Japan / Russia Far East / Kuril / Kamchatka)
-        (3,  "NW Pacific Margin (Japan/Russia)", 
-             "Japan + Russian Far East", 
-             125_700_000 + 6_300_000),  # Japan + Russian Far East
-             
-        # 4. Chile Subduction Zone
-        (4,  "Chile Subduction Zone",             
-             "Chile", 
-             19_600_000),
-
-        # 5. Indonesia / Philippines / PNG Arc
-        (5,  "Indonesia/Philippines/PNG Arc",     
-             "Indonesia + Philippines + PNG", 
-             277_500_000 + 117_300_000 + 9_700_000),
-
-        # 6. New Zealand & SW Pacific (Fiji, Tonga, Kermadec region)
-        (6,  "New Zealand & SW Pacific",          
-             "NZ + Fiji + Tonga + Samoa", 
-             5_200_000 + 940_000 + 107_000 + 225_000),
-
-        # 7. Mediterranean Region
-        (7,  "Mediterranean Region",              
-             "Turkey + Greece + Italy + Balkans", 
-             85_000_000 + 10_300_000 + 58_900_000 + 18_000_000),
-
-        # 8. Himalaya–Central Asia Belt
-        (8,  "Himalaya/Central Asia Belt",        
-             "India North + Nepal + Pakistan North + China West", 
-             600_000_000 + 30_300_000 + 70_000_000 + 95_000_000),
-
-        # 9. Caribbean
-        (9,  "Caribbean Arc (Puerto Rico / USVI)",          
-             "Multiple", 
-             12000000),
-
-        # 10. Everything else
-        (10, "Other",                             
-              "Various", 
-              None),
-    ],
-)
-
-   
-    cur.executemany(
-        """
-        INSERT OR IGNORE INTO SeismicZone (zone_id, zone_name, risk_level)
-        VALUES (?, ?, ?)
-        """,
-        [
-            (1, 'US Pacific Subduction Margin', 5),
-            (2, 'Japan Trench Zone', 5),
-            (3, 'Andean Subduction Zone', 5),
-            (4, 'Sunda Arc (Indonesia)', 5),
-            (5, 'New Zealand Plate Boundary', 4),
-            (6, 'Mediterranean Collision/Subduction', 4),
-            (7, 'Himalayan Collision Belt', 4),
-            (8, 'Mid-Atlantic Ridge', 3),
-            (9, 'Caribbean Subduction Zone (Puerto Rico Trench)', 4),
-            (10, 'Other Oceanic Zone', 2),
-        ],
-    )
-
-    conn.commit()
+    for region in regions:
+        # Use merge to handle INSERT OR IGNORE behavior
+        session.merge(region)
+    
+    # Seed SeismicZone table
+    zones = [
+        SeismicZone(zone_id=1, zone_name='US Pacific Subduction Margin', risk_level=5),
+        SeismicZone(zone_id=2, zone_name='Japan Trench Zone', risk_level=5),
+        SeismicZone(zone_id=3, zone_name='Andean Subduction Zone', risk_level=5),
+        SeismicZone(zone_id=4, zone_name='Sunda Arc (Indonesia)', risk_level=5),
+        SeismicZone(zone_id=5, zone_name='New Zealand Plate Boundary', risk_level=4),
+        SeismicZone(zone_id=6, zone_name='Mediterranean Collision/Subduction', risk_level=4),
+        SeismicZone(zone_id=7, zone_name='Himalayan Collision Belt', risk_level=4),
+        SeismicZone(zone_id=8, zone_name='Mid-Atlantic Ridge', risk_level=3),
+        SeismicZone(zone_id=9, zone_name='Caribbean Subduction Zone (Puerto Rico Trench)', risk_level=4),
+        SeismicZone(zone_id=10, zone_name='Other Oceanic Zone', risk_level=2),
+    ]
+    
+    for zone in zones:
+        session.merge(zone)
+    
+    session.commit()
 
 
 
 
 def fetch_and_load():
-    conn = get_connection()
-    seed_lookup_tables(conn)
-    cur = conn.cursor()
-
-    print("Requesting data from USGS...")
-    response = requests.get(BASE_URL, params=params, timeout=30)
-    response.raise_for_status()
-    data = response.json()
-
-    features = data.get("features", [])
-    print(f"Fetched {len(features)} earthquakes from USGS")
-
+    # Initialize database and create tables if needed
+    init_db()
     
+    with Session(engine) as session:
+        seed_lookup_tables(session)
 
-    for feature in features:
-        props = feature.get("properties", {}) or {}
-        geom = feature.get("geometry", {}) or {}
+        print("Requesting data from USGS...")
+        response = requests.get(BASE_URL, params=params, timeout=30)
+        response.raise_for_status()
+        data = response.json()
 
-        coords = geom.get("coordinates", None)
-        if coords is None or len(coords) < 3:
-            continue
+        features = data.get("features", [])
+        print(f"Fetched {len(features)} earthquakes from USGS")
 
-        lon = coords[0]
-        lat = coords[1]
-        depth_km = coords[2]
+        for feature in features:
+            props = feature.get("properties", {}) or {}
+            geom = feature.get("geometry", {}) or {}
 
-        mag = props.get("mag")
-        time_ms = props.get("time")
-        place_text = props.get("place") or "Unknown location"
+            coords = geom.get("coordinates", None)
+            if coords is None or len(coords) < 3:
+                continue
 
-        
-        if mag is None or time_ms is None or lat is None or lon is None:
-            continue
+            lon = coords[0]
+            lat = coords[1]
+            depth_km = coords[2]
 
-        
-        dt = datetime.fromtimestamp(time_ms / 1000, tz=timezone.utc)
-        dt_str = dt.strftime("%Y-%m-%d %H:%M:%S")
+            mag = props.get("mag")
+            time_ms = props.get("time")
+            place_text = props.get("place") or "Unknown location"
 
-        
-        place_clean = place_text.replace(",", " - ")
+            if mag is None or time_ms is None or lat is None or lon is None:
+                continue
 
-        region_id = classify_region(lat, lon)
-        zone_id = classify_zone(lat, lon)
+            dt = datetime.fromtimestamp(time_ms / 1000, tz=timezone.utc)
+            dt_str = dt.strftime("%Y-%m-%d %H:%M:%S")
 
-        cur.execute(
-            """
-            INSERT INTO Earthquake (
-                datetime, magnitude, depth_km,
-                latitude, longitude, place, region_id, zone_id
+            place_clean = place_text.replace(",", " - ")
+
+            region_id = classify_region(lat, lon)
+            zone_id = classify_zone(lat, lon)
+
+            earthquake = Earthquake(
+                datetime=dt_str,
+                magnitude=float(mag),
+                depth_km=float(depth_km),
+                latitude=float(lat),
+                longitude=float(lon),
+                place=place_clean,
+                region_id=region_id,
+                zone_id=zone_id,
             )
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-            """,
-            (
-                dt_str,
-                float(mag),
-                float(depth_km),
-                float(lat),
-                float(lon),
-                place_clean,
-                region_id,
-                zone_id,
-            ),
-        )
+            session.add(earthquake)
 
-
-    conn.commit()
-    conn.close()
+        session.commit()
+    
     print("Finished loading data into earthquakes.db")
 
 

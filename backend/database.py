@@ -1,27 +1,38 @@
 from pathlib import Path
-import sqlite3
+from sqlmodel import SQLModel, create_engine, Session, text
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 DB_PATH = BASE_DIR / "database" / "earthquakes.db"
-SCHEMA_PATH = BASE_DIR / "database" / "schema.sql"
+
+# SQLite connection string with foreign key support
+DATABASE_URL = f"sqlite:///{DB_PATH}"
+
+# Create engine with connection arguments for SQLite
+engine = create_engine(
+    DATABASE_URL,
+    echo=False,  # Set to True for SQL query logging
+    connect_args={"check_same_thread": False}
+)
 
 
-def get_connection() -> sqlite3.Connection:
+def init_db():
     """
-    Return a SQLite connection. If the database file does not exist yet,
-    this will create it and apply schema.sql.
+    Initialize the database by creating all tables.
+    Call this once when setting up the database.
     """
-    first_time = not DB_PATH.exists()
     DB_PATH.parent.mkdir(parents=True, exist_ok=True)
+    SQLModel.metadata.create_all(engine)
+    
+    # Enable foreign keys for SQLite
+    with Session(engine) as session:
+        session.exec(text("PRAGMA foreign_keys = ON;"))
+        session.commit()
 
-    conn = sqlite3.connect(DB_PATH)
-    conn.execute("PRAGMA foreign_keys = ON;")
 
-    if first_time:
-        print("Initializing database from schema.sql ...")
-        with open(SCHEMA_PATH, "r", encoding="utf-8") as f:
-            sql_script = f.read()
-        conn.executescript(sql_script)
-        conn.commit()
-
-    return conn
+def get_session():
+    """
+    Dependency function that yields a database session.
+    Use with FastAPI's Depends() for automatic session management.
+    """
+    with Session(engine) as session:
+        yield session
