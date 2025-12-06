@@ -122,10 +122,11 @@ def api_quakes_near_location(
 # -----------------------
 @app.get("/analytics/regions/most-active")
 def api_most_active_regions(
-    top_n: int = Query(5, ge=1, le=50, description="Number of regions to return"),
+    top_n: int = Query(5, ge=1, le=10, description="Number of regions to return"),
 ):
     """
     Return the top-N most active regions by earthquake count.
+    Maximum of 10 regions available.
     """
     return get_most_active_regions(top_n)
 
