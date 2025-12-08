@@ -40,7 +40,7 @@ pip install -r requirements.txt
 pip install sqlmodel fastapi uvicorn streamlit pandas requests
 ```
 
-The `requirements.txt` file contains the exact versions of all 52 packages used in this project, ensuring consistency across different machines.
+The `requirements.txt` file contains the exact versions of all 51 packages used in this project, ensuring consistency across different machines.
 
 ## Prerequisites
 
