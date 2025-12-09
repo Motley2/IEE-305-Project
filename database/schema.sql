@@ -17,13 +17,15 @@ CREATE TABLE SeismicZone (
     zone_id   INTEGER PRIMARY KEY,
     zone_name TEXT    NOT NULL,
     risk_level INTEGER NOT NULL
+    CHECK (risk_level BETWEEN 1 AND 5)
 );
 
 -- 3. Earthquake table
 CREATE TABLE Earthquake (
     quake_id   INTEGER PRIMARY KEY AUTOINCREMENT,
     datetime   TEXT    NOT NULL,  -- stored as 'YYYY-MM-DD HH:MM:SS' UTC
-    magnitude  REAL    NOT NULL,
+    magnitude  REAL    NOT NULL
+    CHECK (magnitude >= 0 AND magnitude <= 10),
     depth_km   REAL    NOT NULL,
     latitude   REAL    NOT NULL,
     longitude  REAL    NOT NULL,
